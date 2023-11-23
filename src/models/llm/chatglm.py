@@ -4,6 +4,8 @@ from typing import List, Optional
 from src.utils.env import compose_model_id
 
 from .base import LlmModel, split_messages
+from ...type import ChatMessage
+
 
 class ChatGLM(LlmModel):
     def load(self):
@@ -17,11 +19,17 @@ class ChatGLM(LlmModel):
         print(f"Model {model_id} loaded!")
 
         return self
-    
-    def chat(self, messages: List[str], stream: Optional[bool] = False, **kwargs):
+
+    def chat(self, messages: List[ChatMessage], stream: Optional[bool] = False, **kwargs):
         if stream:
-            query, history = split_messages(messages)
+            # ChatGLM3 uses a different chat format
+            # ref: https://github.com/THUDM/ChatGLM3/blob/main/PROMPT_en.md
+            if self.id == 'chatglm3-6b':
+                query, history = messages[-1].content,messages[:-1]
+                history = [{'role': h.role, 'content': h.content} for h in history]
+            else:
+                query, history = split_messages(messages)
             response = self.model.stream_chat(self.tokenizer, query, history) #, **kwargs)
             return response, "tuple"
         else:
-            return super().chat(messages, stream) #, **kwargs)
+            return super().chat(messages, stream=stream)  # , **kwargs)
